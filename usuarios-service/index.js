@@ -9,7 +9,7 @@ app.use(express.json());
 const PORT = 3001;
 
 // Debe ser exactamente la misma clave utilizada por auth-service
-const JWT_SECRET = process.env.JWT_SECRET || '236affaeae1ff8fff071843a0512c042a57a7fb6c43a3f399845b05ab7a80368cb7e12004c0d3c821ef7dddcb46be400f0c3e0c7052695f89a46896877b64d8a';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Base de datos propia del microservicio
 const db = new Database('usuarios.db');
