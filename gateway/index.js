@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = 3000;
-const SECRET = 'miClaveSecretaSuperSeguraP';
+const SECRET = '236affaeae1ff8fff071843a0512c042a57a7fb6c43a3f399845b05ab7a80368cb7e12004c0d3c821ef7dddcb46be400f0c3e0c7052695f89a46896877b64d8a';
 
 const SERVICES = {
   auth: 'http://localhost:8080',

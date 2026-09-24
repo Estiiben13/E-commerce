@@ -2,14 +2,19 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Database = require('better-sqlite3');
+require('dotenv').config();
 
 const app = express();
 app.use(express.json());
 
 const PORT = 8080;
-const SECRET = 'miClaveSecretaSuperSeguraP';
 
+// La misma clave deberá estar configurada en los demás microservicios
+const JWT_SECRET = process.env.JWT_SECRET || '236affaeae1ff8fff071843a0512c042a57a7fb6c43a3f399845b05ab7a80368cb7e12004c0d3c821ef7dddcb46be400f0c3e0c7052695f89a46896877b64d8a';
+
+// Base de datos propia del microservicio
 const db = new Database('auth.db');
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,32 +23,104 @@ db.exec(`
   )
 `);
 
+
+// REGISTRO DE USUARIO
+
 app.post('/registrar', (req, res) => {
   const { email, password } = req.body;
+
   if (!email || !password) {
-    return res.status(400).json({ error: 'Email y password son obligatorios' });
+    return res.status(400).json({
+      error: 'Email y password son obligatorios'
+    });
   }
 
-  const existe = db.prepare('SELECT id FROM usuarios WHERE email = ?').get(email);
-  if (existe) return res.status(409).json({ error: 'El usuario ya existe' });
+  // Verificar si el usuario ya existe
+  const existe = db
+    .prepare('SELECT id FROM usuarios WHERE email = ?')
+    .get(email);
 
-  // Nunca guardamos la contraseña en texto plano
+  if (existe) {
+    return res.status(409).json({
+      error: 'El usuario ya existe'
+    });
+  }
+
+  // Encriptar la contraseña utilizando BCrypt
   const hash = bcrypt.hashSync(password, 10);
-  const info = db.prepare('INSERT INTO usuarios (email, password) VALUES (?, ?)').run(email, hash);
 
-  res.status(201).json({ id: info.lastInsertRowid, email });
+  // Guardar únicamente el hash, nunca la contraseña original
+  const info = db
+    .prepare(
+      'INSERT INTO usuarios (email, password) VALUES (?, ?)'
+    )
+    .run(email, hash);
+
+  res.status(201).json({
+    mensaje: 'Usuario registrado correctamente',
+    id: info.lastInsertRowid,
+    email
+  });
 });
+
+// LOGIN
 
 app.post('/login', (req, res) => {
   const { email, password } = req.body;
-  const usuario = db.prepare('SELECT * FROM usuarios WHERE email = ?').get(email);
 
-  if (!usuario || !bcrypt.compareSync(password, usuario.password)) {
-    return res.status(401).json({ error: 'Credenciales inválidas' });
+  if (!email || !password) {
+    return res.status(400).json({
+      error: 'Email y password son obligatorios'
+    });
   }
 
-  const token = jwt.sign({ id: usuario.id, email: usuario.email }, SECRET, { expiresIn: '2h' });
-  res.json({ token });
+  // Buscar usuario por email
+  const usuario = db
+    .prepare('SELECT * FROM usuarios WHERE email = ?')
+    .get(email);
+
+  // Verificar usuario y contraseña con BCrypt
+  if (
+    !usuario ||
+    !bcrypt.compareSync(password, usuario.password)
+  ) {
+    return res.status(401).json({
+      error: 'Credenciales inválidas'
+    });
+  }
+
+  // Crear JWT
+  const token = jwt.sign(
+    {
+      id: usuario.id,
+      email: usuario.email
+    },
+    JWT_SECRET,
+    {
+      expiresIn: '2h'
+    }
+  );
+
+  res.json({
+    mensaje: 'Login exitoso',
+    token
+  });
 });
 
-app.listen(PORT, () => console.log(`Auth service corriendo en http://localhost:${PORT}`));
+
+// RUTA DE PRUEBA
+
+app.get('/', (req, res) => {
+  res.json({
+    servicio: 'auth-service',
+    estado: 'activo',
+    puerto: PORT
+  });
+});
+
+
+// INICIAR SERVICIO
+
+app.listen(PORT, () => {
+  console.log(`Auth service corriendo en http://localhost:${PORT}`);
+});
